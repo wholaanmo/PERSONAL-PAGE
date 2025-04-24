@@ -1,0 +1,95 @@
+const pool = require('../../config/database');
+
+module.exports = {
+  // Add Expense
+  addExpense: (data, callback) => {
+    pool.getConnection((err, connection) => {
+      if (err) {
+        console.error('Database connection error:', err);
+        return callback(err);
+      }
+
+    connection.query(
+      "INSERT INTO expenses (userId, item_price, expense_type, item_name, personal_budget_id) VALUES (?, ?, ?, ?, ?)",
+      [data.userId, data.item_price, data.expense_type, data.item_name, data.personal_budget_id],
+      (err, results) => {
+        connection.release();
+        if (err) {
+          console.error("SQL Error:", err.sqlMessage);  //DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGG
+        console.error("Database Error:", err);
+        return callback(err);
+      }
+        return callback(null, results);
+      }
+      );
+    });
+  },
+
+  // Edit Expense
+  editExpense: (data, callback) => {
+    pool.getConnection((err, connection) => {
+      if (err) {
+        console.error('Database connection error:', err);
+        return callback(err);
+      }
+    connection.query(
+      "UPDATE expenses SET item_price = ?, expense_type = ?, item_name = ? WHERE id = ? AND userId = ?",
+      [data.item_price, data.expense_type, data.item_name, data.id, data.userId],
+      (err, results) => {
+        connection.release();
+        if (err) {
+          console.error("SQL Error:", err.sqlMessage); // DEBUGGGGGGGGGGGGGGGGGGGGGGGGGGGG
+          return callback(err);
+        }
+        if (results.affectedRows === 0) {
+          return callback(new Error("Expense not found or unauthorized"));
+        }
+        return callback(null, results);
+      }
+      );
+    });
+  },
+
+  // Delete Expense
+  deleteExpense: (id, userId, callback) => {
+    pool.getConnection((err, connection) => {
+      if (err) {
+        console.error('Database connection error:', err);
+        return callback(err);
+      }
+    connection.query(
+      "DELETE FROM expenses WHERE id = ? AND userId = ?",
+      [id, userId],
+      (err, results) => {
+        connection.release();
+
+        if (err) return callback(err);
+        if (results.affectedRows === 0) {
+          return callback(new Error("Expense not found or unauthorized"));
+        }
+        return callback(null, results);
+        }
+      );
+    });
+  },
+  
+  getExpensesByUser: (userId, callback) => {
+    pool.getConnection((err, connection) => {
+      if (err) {
+        console.error('Database connection error:', err);
+        return callback(err);
+      }
+
+    connection.query(
+      "SELECT id, item_price, expense_type, item_name, expense_date FROM expenses WHERE userId = ?",
+      [userId],
+      (err, results) => {
+        connection.release();
+
+        if (err) return callback(err);
+        return callback(null, results);
+        }
+      );
+    });
+  }
+};
