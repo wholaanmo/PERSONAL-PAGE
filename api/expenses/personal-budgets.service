@@ -1,0 +1,130 @@
+const pool = require('../../config/database');
+
+module.exports = {
+  addBudget: (data, callback) => {
+    pool.query(
+      `INSERT INTO personal_budgets 
+       (user_id, month_year, budget_amount, created_at) 
+       VALUES (?, ?, ?, NOW())`,
+      [data.userId, data.month_year, data.budget_amount],
+      (err, results) => {
+        if (err) return callback(err);
+        return callback(null, results);
+      }
+    );
+  },
+
+  updateBudget: (data, callback) => {
+    if (data.month_year !== data.original_month_year) {
+      pool.getConnection((err, connection) => {
+        if (err) return callback(err);
+        
+        connection.beginTransaction(err => {
+          if (err) {
+            connection.release();
+            return callback(err);
+          }
+  
+          //DELETE OLD RECORD
+          connection.query(
+            `DELETE FROM personal_budgets 
+             WHERE user_id = ? AND month_year = ?`,
+            [data.userId, data.original_month_year],
+            (err, results) => {
+              if (err) {
+                return connection.rollback(() => {
+                  connection.release();
+                  callback(err);
+                });
+              }
+  
+              // INSERT NEW RECORD
+              connection.query(
+                `INSERT INTO personal_budgets 
+                 (user_id, month_year, budget_amount, created_at) 
+                 VALUES (?, ?, ?, NOW())`,
+                [data.userId, data.month_year, data.budget_amount],
+                (err, results) => {
+                  if (err) {
+                    return connection.rollback(() => {
+                      connection.release();
+                      callback(err);
+                    });
+                  }
+  
+                  connection.commit(err => {
+                    connection.release();
+                    if (err) {
+                      return connection.rollback(() => {
+                        callback(err);
+                      });
+                    }
+                    callback(null, results);
+                  });
+                }
+              );
+            }
+          );
+        });
+      });
+    } else {
+      
+      pool.query(
+        `UPDATE personal_budgets 
+         SET 
+           budget_amount = ?,
+           updated_at = NOW()
+         WHERE 
+           user_id = ? 
+           AND month_year = ?`,
+        [data.budget_amount, data.userId, data.month_year],
+        (err, results) => {
+          if (err) return callback(err);
+          return callback(null, results);
+        }
+      );
+    }
+  },
+
+  deleteBudget: (userId, month_year, callback) => {
+    pool.query(
+      `DELETE FROM personal_budgets 
+       WHERE user_id = ? AND month_year = ?`,
+      [userId, month_year],
+      (err, results) => {
+        if (err) {
+          console.error('Delete error:', err);// TEMPORARRYYYYYY
+          return callback(err);
+        }
+        console.log(`Deleted ${results.affectedRows} rows`);// TEMPORARYYYYYYY
+        callback(null, results);
+      }
+    );
+  },
+
+  checkBudgetExists: (userId, month_year, callback) => {
+    pool.query(
+      `SELECT id FROM personal_budgets 
+       WHERE user_id = ? AND month_year = ?`,
+      [userId, month_year],
+      (err, results) => {
+        if (err) return callback(err);
+        return callback(null, results.length > 0);
+      }
+    );
+  },
+
+  getBudgetsByUser: (userId, callback) => {
+    pool.query(
+      `SELECT id, month_year, budget_amount 
+       FROM personal_budgets 
+       WHERE user_id = ? 
+       ORDER BY month_year DESC`,
+      [userId],
+      (err, results) => {
+        if (err) return callback(err);
+        return callback(null, results);
+      }
+    );
+  }
+};
