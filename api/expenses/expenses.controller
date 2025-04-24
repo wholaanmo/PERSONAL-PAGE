@@ -1,0 +1,105 @@
+const expenseService = require('../expenses/expenses.service');
+
+module.exports = {
+  addExpense: (req, res) => {
+    const { item_price, expense_type, item_name, personal_budget_id } = req.body;
+    const userId = req.user.userId; // From JWT middleware
+
+    if (!item_price || !expense_type || !item_name) {
+      return res.status(400).json({
+          success: 0,
+          message: "Missing required fields"
+      });
+  }
+
+    expenseService.addExpense(
+      { userId, item_price, expense_type, item_name, personal_budget_id},
+      (err, results) => {
+        if (err) {
+          let message = "Database error";
+          if (err.errno === 1452) {
+            message = "The specified personal budget does not exist";
+          } else if (err.message === "Personal budget not found or unauthorized") {
+            message = err.message;
+          }
+          return res.status(500).json({
+            success: 0,
+            message: message
+          });
+        }
+        return res.status(200).json({
+          success: 1,
+          message: "Expense added successfully"
+        });
+      }
+    );
+  },
+
+  editExpense: (req, res) => {
+    const { item_price, expense_type, item_name } = req.body;
+    const userId = req.user.userId; 
+    const id = req.params.id; 
+  
+    if (!item_price || !expense_type || !item_name) {
+      return res.status(400).json({
+        success: 0,
+        message: "Missing required fields"
+      });
+    }
+
+  expenseService.editExpense(
+    { id, userId, item_price, expense_type, item_name },
+    (err, results) => {
+      if (err) {
+        let message = "Database error";
+        if (err.message === "Expense not found or unauthorized") {
+          message = err.message;
+        }
+        return res.status(500).json({
+          success: 0,
+          message: message
+        });
+      }
+      return res.json({
+        success: 1,
+        message: "Expense updated successfully"
+      });
+    }
+  );
+},
+
+  deleteExpense: (req, res) => {
+    const { id } = req.params;
+    const userId = req.user.userId;
+
+    expenseService.deleteExpense(id, userId, (err, results) => {
+      if (err) {
+        return res.status(500).json({
+          success: 0,
+          message: err.message || "Database error"
+        });
+      }
+      return res.json({
+        success: 1,
+        message: "Expense deleted successfully"
+      });
+    });
+  },
+
+  getExpenses: (req, res) => {
+    const userId = req.user.userId;
+
+    expenseService.getExpensesByUser(userId, (err, results) => {
+      if (err) {
+        return res.status(500).json({
+          success: 0,
+          message: "Database error"
+        });
+      }
+      return res.json({
+        success: 1,
+        data: results
+      });
+    });
+  }
+};
