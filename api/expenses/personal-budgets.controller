@@ -1,0 +1,126 @@
+const budgetService = require('../expenses/personal-budgets.service');
+
+module.exports = {
+  addBudget: (req, res) => {
+    const { month_year, budget_amount } = req.body;
+    const userId = req.user.userId;
+
+    if (!month_year || !budget_amount) {
+      return res.status(400).json({
+        success: 0,
+        message: "Month and budget amount are required"
+      });
+    }
+
+    //one budget amount each month
+    budgetService.checkBudgetExists(userId, month_year, (err, exists) => {
+      if (err) {
+        return res.status(500).json({
+          success: 0,
+          message: "Database error when checking existing budget"
+        });
+      }
+
+      if (exists) {
+        return res.status(409).json({
+          success: 0,
+          message: "You can only add one budget per month. Try updating it instead."
+        });
+      }
+
+    budgetService.addBudget(
+      { userId, month_year, budget_amount },
+      (err, results) => {
+        if (err) {
+          return res.status(500).json({
+            success: 0,
+            message: err.message || "Database error"
+          });
+        }
+
+        return res.json({
+          success: 1,
+          message: "Budget set successfully",
+          data: results
+        });
+      }
+    );
+  });
+},
+
+updateBudget: (req, res) => {
+  const { month_year, budget_amount, original_month_year } = req.body;
+  const userId = req.user.userId;
+
+  if (!month_year || !budget_amount || !original_month_year) {
+    return res.status(400).json({
+      success: 0,
+      message: "Month, original month, and budget amount are required"
+    });
+  }
+
+  if (month_year !== original_month_year) {
+    budgetService.checkBudgetExists(userId, month_year, (err, exists) => {
+      if (err) {
+        return res.status(500).json({
+          success: 0,
+          message: "Database error when checking existing budget"
+        });
+      }
+      if (exists) {
+        return res.status(409).json({
+          success: 0,
+          message: "The selected month already has a budget. Please choose a different month."
+        });
+      }
+
+      performUpdate();
+      });
+    } else {
+      performUpdate();
+    }
+
+    function performUpdate() {
+      budgetService.updateBudget(
+        { userId, original_month_year, month_year, budget_amount },
+        (err, results) => {
+          if (err) {
+            return res.status(500).json({
+              success: 0,
+              message: err.message || "Database error occurred"
+            });
+          }
+
+          if (results.affectedRows === 0) {
+            return res.status(404).json({
+              success: 0,
+              message: `No budget found for ${original_month_year} to update`
+            });
+          }
+
+          return res.json({
+            success: 1,
+            message: "Budget updated successfully",
+            data: results
+          });
+        }
+      );
+    }
+  },
+
+    getBudgets: (req, res) => {
+    const userId = req.user.userId;
+    budgetService.getBudgetsByUser(userId, (err, results) => {
+      if (err) {
+        return res.status(500).json({
+          success: 0,
+          message: "Database error"
+        });
+      }
+      return res.json({
+        success: 1,
+        data: results
+      });
+    });
+  }
+};
